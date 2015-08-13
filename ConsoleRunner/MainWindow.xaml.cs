@@ -34,28 +34,30 @@ namespace ConsoleRunner
         {
             InitializeComponent();
 
-            AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
-            //Application.Current.DispatcherUnhandledException += Current_DispatcherUnhandledException;
-            _processCheck.Elapsed += _processCheck_Elapsed;
+            try
+            {
+                Application.Current.DispatcherUnhandledException += Current_DispatcherUnhandledException;
+                ClearText();
+                _processCheck.Elapsed += _processCheck_Elapsed;
 
-            AutoScroll.IsChecked = _autoScroll;
-            AutoScroll.Checked += new RoutedEventHandler((send, args) => { _autoScroll = ((CheckBox)send).IsChecked.Value; });
-            AutoScroll.Unchecked += new RoutedEventHandler((send, args) => { _autoScroll = ((CheckBox)send).IsChecked.Value; });
+                AutoScroll.IsChecked = _autoScroll;
+                AutoScroll.Checked += new RoutedEventHandler((send, args) => { _autoScroll = ((CheckBox)send).IsChecked.Value; });
+                AutoScroll.Unchecked += new RoutedEventHandler((send, args) => { _autoScroll = ((CheckBox)send).IsChecked.Value; });
 
-            this.Title = WindowTitle;
-            LoadButtons();
-        }
-
-        private void CurrentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)
-        {
-            UpdateText(string.Format("ERROR: The following unexpected error was raised within the application:\r{0}\r{1}",
-                ((Exception)e.ExceptionObject).Message, ((Exception)e.ExceptionObject).StackTrace));
+                this.Title = WindowTitle;
+                LoadButtons();
+            }
+            catch (Exception ex)
+            {
+                UpdateText(string.Format("CRITICAL ERROR ENCOUNTERED ON STARTUP\r{0}\r{1}", ex.Message, ex.TargetSite.Name));
+            }
         }
 
         private void Current_DispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
         {
-            UpdateText(string.Format("ERROR: The following unexpected error was raised within the application:\r{0}\r{1}", 
-                e.Exception.Message, e.Exception.StackTrace));
+            UpdateText(string.Format("\r***** ERROR: {0} ({1})", 
+                e.Exception.Message, e.Exception.TargetSite.Name));
+            e.Handled = true;
         }
 
         private string WindowTitle
@@ -78,42 +80,63 @@ namespace ConsoleRunner
 
         private void LoadButton(Button btn)
         {
-            var buttonSettings = ConfigurationManager.AppSettings[btn.Name];
-            var buttonSettingParts = buttonSettings.Split(_processPartSeparator);
-
-            if (buttonSettingParts.Length > 0)
+            try
             {
-                if (buttonSettingParts[0].Length > 0)
+                var buttonSettings = ConfigurationManager.AppSettings[btn.Name];
+                var buttonSettingParts = buttonSettings.Split(_processPartSeparator);
+
+                if (buttonSettingParts.Length > 0)
                 {
-                    if (buttonSettingParts.Length < 4)
+                    if (buttonSettingParts[0].Length > 0)
                     {
-                        throw new ArgumentNullException(btn.Name, string.Format("We were expecting the application setting '{0}' to contain 4 parts like the following: <caption>{1}<tooltip>{1}<process>{1}<process_args>", btn.Name, _processPartSeparator));
+                        if (buttonSettingParts.Length < 4)
+                        {
+                            throw new ArgumentNullException(btn.Name, string.Format("We were expecting the application setting '{0}' to contain 4 parts like the following: <caption>{1}<tooltip>{1}<process>{1}<process_args>", btn.Name, _processPartSeparator));
+                        }
+
+                        var caption = buttonSettingParts[0];
+                        var toolTip = buttonSettingParts[1];
+                        var process = buttonSettingParts[2];
+                        var processArgs = buttonSettingParts[3];
+
+                        btn.Content = caption;
+                        btn.ToolTip = toolTip.Length > 0 ? string.Format("{0}\r{1} {2}", toolTip, process, processArgs) : null;
+                        btn.Tag = new List<string> { process, processArgs };
                     }
-
-                    var caption = buttonSettingParts[0];
-                    var toolTip = buttonSettingParts[1];
-                    var process = buttonSettingParts[2];
-                    var processArgs = buttonSettingParts[3];
-
-                    btn.Content = caption;
-                    btn.ToolTip = toolTip.Length > 0 ? string.Format("{0}\r{1} {2}", toolTip, process, processArgs) : null;
-                    btn.Tag = new List<string> { process, processArgs };
+                    else
+                    {
+                        btn.Visibility = Visibility.Hidden;
+                    }
                 }
                 else
                 {
                     btn.Visibility = Visibility.Hidden;
                 }
             }
-            else
+            catch(Exception ex)
             {
-                btn.Visibility = Visibility.Hidden;
+                throw new Exception(string.Format("Exception while loading configuration for {0}\r{1}", btn.Name, ex.Message));
             }
         }
 
         private void HandleButtonClick(Button btn)
         {
             var processParts = btn.Tag as List<string>;
-            KickOffProcess(processParts[0], processParts[1]);
+            if (processParts != null)
+            {
+                if (processParts.Count < 2)
+                {
+                    KickOffProcess(processParts[0], string.Empty);
+                }
+                else
+                {
+                    KickOffProcess(processParts[0], processParts[1]);
+                }
+            }
+            else
+            {
+                throw new ArgumentNullException(string.Format("appSettings.{0}", btn.Name), "Button does not have process details defined");
+            }
         }
 
         private void _processCheck_Elapsed(object sender, ElapsedEventArgs e)
@@ -140,35 +163,40 @@ namespace ConsoleRunner
 
         private void KickOffProcess(string fileName, string args)
         {
-            if (fileName.Length > 0)
-            {
-                ProcessStartInfo start = new ProcessStartInfo();
-                start.FileName = fileName;
-                start.Arguments = args;
-                start.UseShellExecute = false;
-                start.RedirectStandardOutput = true;
-                start.CreateNoWindow = true;
-
-                Process p = new Process();
-                _processes.Add(p);
-                p.StartInfo = start;
-                p.OutputDataReceived += new DataReceivedEventHandler((procSender, procEventArgs) =>
+            try {
+                if (fileName.Length > 0)
                 {
-                    UpdateText(procEventArgs.Data);
-                }
-                );
-                p.ErrorDataReceived += new DataReceivedEventHandler((procSender, procEventArgs) => { UpdateText(procEventArgs.Data); });
-                p.Exited += new EventHandler((procSender, procEventArgs) => { CleanupProcess((Process)procSender); });
-                p.Start();
-                p.BeginOutputReadLine();
-                p = null;
+                    ProcessStartInfo start = new ProcessStartInfo();
+                    start.FileName = fileName;
+                    start.Arguments = args;
+                    start.UseShellExecute = false;
+                    start.RedirectStandardOutput = true;
+                    start.CreateNoWindow = true;
 
-                UpdateWindowTitle();
-                _processCheck.Start();
-            }
-            else
+                    Process p = new Process();
+                    _processes.Add(p);
+                    p.StartInfo = start;
+                    p.OutputDataReceived += new DataReceivedEventHandler((procSender, procEventArgs) =>
+                    {
+                        UpdateText(procEventArgs.Data);
+                    }
+                    );
+                    p.ErrorDataReceived += new DataReceivedEventHandler((procSender, procEventArgs) => { UpdateText(procEventArgs.Data); });
+                    p.Exited += new EventHandler((procSender, procEventArgs) => { CleanupProcess((Process)procSender); });
+                    p.Start();
+                    p.BeginOutputReadLine();
+                    p = null;
+
+                    UpdateWindowTitle();
+                    _processCheck.Start();
+                }
+                else
+                {
+                    throw new ArgumentNullException("Process filename", "There is no process defined to execute");
+                }
+            } catch (Exception ex)
             {
-                throw new ArgumentNullException("Process filename", "There is no process defined to execute");
+                throw new Exception(string.Format("{0} - {1} ({2} {3})", ex.Message, ex.TargetSite.Name, fileName, args));
             }
         }
 
