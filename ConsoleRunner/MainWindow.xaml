@@ -5,12 +5,26 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:ConsoleRunner"
         mc:Ignorable="d"
-        Title="MainWindow" Height="350" Width="525">
+        Title="Console Runner" Height="471.8" Width="749" Icon="Resources/app_icon.ico">
     <Grid>
         <ToolBar x:Name="toolBar" Height="30" VerticalAlignment="Top" Margin="10,0,10.4,0">
-            <Button Content="Run..." Click="Button_Click"/>
+            <Button x:Name="Button1" Content="Button1" Click="ProcessButton_Click" FontSize="10.667"/>
+            <Separator></Separator>
+            <Button x:Name="Button2" Content="Button2" Click="ProcessButton_Click" FontSize="10.667"/>
+            <Separator></Separator>
+            <Button x:Name="Button3" Content="Button3" Click="ProcessButton_Click" FontSize="10.667"/>
+            <Separator></Separator>
+            <Button x:Name="Button4" Content="Button4" Click="ProcessButton_Click" FontSize="10.667"/>
+            <Separator></Separator>
+            <Button x:Name="Button5" Content="Button5" Click="ProcessButton_Click" FontSize="10.667"/>
+            <Separator></Separator>
+            <Button x:Name="Button6" Content="Button6" Click="ProcessButton_Click" FontSize="10.667"/>
+            <Separator></Separator>
+            <CheckBox x:Name="AutoScroll" Content="Auto-scroll" IsChecked="True" FontWeight="Bold"/>
+            <Separator></Separator>
+            <Button x:Name="ClearTextButton" Content="Clear" Click="ClearTextButton_Click" FontWeight="Bold"/>
         </ToolBar>
-        <TextBox x:Name="textBox" Margin="10,35,10.4,9.8" TextWrapping="Wrap" FontFamily="Courier New" FontSize="10.667" ScrollViewer.CanContentScroll="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"/>
+        <TextBox x:Name="textBox" Margin="10,35,10.4,9.8" TextWrapping="Wrap" FontFamily="Courier New" FontSize="10.667" ScrollViewer.CanContentScroll="True" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" Background="#FF545353" Foreground="#FFE7E2E2" AcceptsTab="True" Text="Console output..."/>
 
     </Grid>
 </Window>
