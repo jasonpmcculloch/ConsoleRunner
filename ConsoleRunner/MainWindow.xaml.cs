@@ -55,7 +55,7 @@ namespace ConsoleRunner
 
         private void Current_DispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
         {
-            UpdateText(string.Format("\r***** ERROR: {0} ({1})", 
+            UpdateText(string.Format("\r********** ERROR: {0} ({1}) **********", 
                 e.Exception.Message, e.Exception.TargetSite.Name));
             e.Handled = true;
         }
@@ -173,19 +173,20 @@ namespace ConsoleRunner
                     start.RedirectStandardOutput = true;
                     start.CreateNoWindow = true;
 
-                    Process p = new Process();
-                    _processes.Add(p);
-                    p.StartInfo = start;
-                    p.OutputDataReceived += new DataReceivedEventHandler((procSender, procEventArgs) =>
+                    Process proc = new Process();
+                    _processes.Add(proc);
+                    proc.StartInfo = start;
+                    proc.OutputDataReceived += new DataReceivedEventHandler((procSender, procEventArgs) =>
                     {
                         UpdateText(procEventArgs.Data);
                     }
                     );
-                    p.ErrorDataReceived += new DataReceivedEventHandler((procSender, procEventArgs) => { UpdateText(procEventArgs.Data); });
-                    p.Exited += new EventHandler((procSender, procEventArgs) => { CleanupProcess((Process)procSender); });
-                    p.Start();
-                    p.BeginOutputReadLine();
-                    p = null;
+                    proc.ErrorDataReceived += new DataReceivedEventHandler((procSender, procEventArgs) => { UpdateText(procEventArgs.Data); });
+                    proc.Exited += new EventHandler((procSender, procEventArgs) => { CleanupProcess((Process)procSender); });
+                    UpdateText(string.Format("********** Starting [{0}]**********", proc.StartInfo.FileName));
+                    proc.Start();
+                    proc.BeginOutputReadLine();
+                    proc = null;
 
                     UpdateWindowTitle();
                     _processCheck.Start();
@@ -204,13 +205,13 @@ namespace ConsoleRunner
         {
             try
             {
-                UpdateText("********** Exited **********");
+                UpdateText(string.Format("********** Exited [{0}]**********", proc.StartInfo.FileName));
                 _processes.Remove(proc);
                 UpdateWindowTitle();
             }
             catch (Exception ex)
             {
-                UpdateText(string.Format("ERROR: {0}", ex.Message));
+                UpdateText(string.Format("********** ERROR: {0} **********", ex.Message));
             }
         }
 
