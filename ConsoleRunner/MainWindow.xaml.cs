@@ -55,7 +55,7 @@ namespace ConsoleRunner
 
         private void Current_DispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
         {
-            UpdateText(string.Format("\r********** ERROR: {0} ({1}) **********", 
+            UpdateText(string.Format("\r    ERROR: {0} ({1})", 
                 e.Exception.Message, e.Exception.TargetSite.Name));
             e.Handled = true;
         }
@@ -145,7 +145,15 @@ namespace ConsoleRunner
             if (_processes.Count > 0) {
                 for (int index = _processes.Count - 1; index >= 0; index--)
                 {
-                    var exited = _processes[index].HasExited;
+                    try
+                    {
+                        var exited = _processes[index].HasExited;
+                    }
+                    catch (Exception ex)
+                    {
+                        UpdateText(string.Format("Problem checking process status: {0}", ex.Message));
+                        _processes.RemoveAt(index);
+                    }
                 }
                 _processCheck.Start();
             }
@@ -163,17 +171,20 @@ namespace ConsoleRunner
 
         private void KickOffProcess(string fileName, string args)
         {
-            try {
+            Process proc = new Process();
+            try
+            {
                 if (fileName.Length > 0)
                 {
                     ProcessStartInfo start = new ProcessStartInfo();
                     start.FileName = fileName;
                     start.Arguments = args;
                     start.UseShellExecute = false;
-                    start.RedirectStandardOutput = true;
-                    start.CreateNoWindow = true;
+                    start.RedirectStandardOutput = !NewWindowButton.IsChecked.Value;
+                    start.RedirectStandardError = !NewWindowButton.IsChecked.Value;
+                    start.WindowStyle = ProcessWindowStyle.Minimized;
+                    start.CreateNoWindow = !NewWindowButton.IsChecked.Value;
 
-                    Process proc = new Process();
                     _processes.Add(proc);
                     proc.StartInfo = start;
                     proc.OutputDataReceived += new DataReceivedEventHandler((procSender, procEventArgs) =>
@@ -185,7 +196,10 @@ namespace ConsoleRunner
                     proc.Exited += new EventHandler((procSender, procEventArgs) => { CleanupProcess((Process)procSender); });
                     UpdateText(string.Format("********** Starting [{0}]**********", proc.StartInfo.FileName));
                     proc.Start();
-                    proc.BeginOutputReadLine();
+                    if (!NewWindowButton.IsChecked.Value)
+                    {
+                        proc.BeginOutputReadLine();
+                    }
                     proc = null;
 
                     UpdateWindowTitle();
@@ -197,7 +211,16 @@ namespace ConsoleRunner
                 }
             } catch (Exception ex)
             {
+                CleanupProcess(proc);
                 throw new Exception(string.Format("{0} - {1} ({2} {3})", ex.Message, ex.TargetSite.Name, fileName, args));
+            }
+        }
+
+        private void CleanupAllProcesses()
+        {
+            for (int index = _processes.Count - 1; index >= 0; index--)
+            {
+                CleanupProcess(_processes[index]);
             }
         }
 
@@ -205,13 +228,22 @@ namespace ConsoleRunner
         {
             try
             {
+                try
+                {
+                    proc.Kill();
+                }
+                catch(Exception closeEx)
+                {
+                    UpdateText(string.Format("    WARNING: Tried to close process: {0}", closeEx.Message));
+                }
+
                 UpdateText(string.Format("********** Exited [{0}]**********", proc.StartInfo.FileName));
                 _processes.Remove(proc);
                 UpdateWindowTitle();
             }
             catch (Exception ex)
             {
-                UpdateText(string.Format("********** ERROR: {0} **********", ex.Message));
+                UpdateText(string.Format("    ERROR: Tried to cleanup process: {0}", ex.Message));
             }
         }
 
@@ -241,6 +273,16 @@ namespace ConsoleRunner
             {
                 textBox.Text = string.Empty;
             }), DispatcherPriority.Render);
+        }
+
+        private void NewWindowButton_Click(object sender, RoutedEventArgs e)
+        {
+
+        }
+
+        private void StopAll_Click(object sender, RoutedEventArgs e)
+        {
+            CleanupAllProcesses();
         }
     }
 }
